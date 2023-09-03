@@ -145,6 +145,9 @@ def find_function_calls_in_py_file(
     py_file: str,
     repo_root: str,
 ) -> dict:
+    """reads a python file and figures out the functions
+    it calls"""
+
     expressions, lines = parse_py_file(py_file)
 
     module_name = py_file.replace(repo_root, "")
@@ -300,14 +303,33 @@ def call_graph_to_mermaid(call_graph: dict) -> str:
 
     all_nodes = list(set(all_nodes))
 
+    # for every node, find the module it's in
+    # this is as simple as splitting by the last "."
+    modules = dict()
     for node in all_nodes:
-        txt.append(node)
+        this_module = ".".join(node.split(".")[:-1])
+        if this_module in modules.keys():
+            modules[this_module].append(node)
+        else:
+            modules[this_module] = [node]
+
+    # now declare every node in a subgraph that contains it
+    for key in modules.keys():
+        txt.append(f"subgraph {key}")
+
+        for node in modules[key]:
+            this_node = node.replace(key, "")
+            if this_node[0] == ".":
+                this_node = this_node[1:]
+            txt.append(this_node)
+
+        txt.append("end")
 
     # now declare all edges
     for key in call_graph.keys():
         values = call_graph[key]
         for value in values:
-            edge = f"{key} --> {value}"
+            edge = f"{key.split('.')[-1]} --> {value.split('.')[-1]}"
             txt.append(edge)
 
     with open("/Users/srinivas/Desktop/graph.txt", "w") as file:
